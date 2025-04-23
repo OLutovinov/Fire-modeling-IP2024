@@ -1,0 +1,26 @@
+﻿  IndProj.cpp
+C:\Users\Oleg\source\repos\IndProj\IndProj.h(36,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  (compiling source file 'IndProj.cpp')
+  
+C:\Users\Oleg\source\repos\IndProj\IndProj.h(75,29): warning C4305: 'initializing': truncation from 'double' to 'float'
+  (compiling source file 'IndProj.cpp')
+  
+  Source.cpp
+C:\Users\Oleg\source\repos\IndProj\IndProj.h(36,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+  (compiling source file 'Source.cpp')
+  
+C:\Users\Oleg\source\repos\IndProj\IndProj.h(75,29): warning C4305: 'initializing': truncation from 'double' to 'float'
+  (compiling source file 'Source.cpp')
+  
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(14,41): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(41,15): warning C4244: 'argument': conversion from 'time_t' to 'unsigned int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(225,35): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(225,24): warning C4244: 'initializing': conversion from 'double' to 'const float', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(243,98): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(243,75): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(253,67): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(253,27): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(256,56): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\Oleg\source\repos\IndProj\Source.cpp(255,64): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+  Generating Code...
+  IndProj.vcxproj -> C:\Users\Oleg\source\repos\IndProj\x64\Debug\IndProj.exe
