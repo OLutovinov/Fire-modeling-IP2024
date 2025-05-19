@@ -25,15 +25,27 @@ Module Program;
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
-                     _In_opt_ HINSTANCE hPrevInstance,
-                     _In_ LPWSTR    lpCmdLine,
-                     _In_ int       nCmdShow)
+void SetupConsole()
+{
+    AllocConsole();
+    AttachConsole(GetCurrentProcessId());
+    
+    FILE* conout = stdout;
+    freopen_s(&conout, "CONOUT$", "w", stdout);
+
+    SetConsoleTitle(L"debug console");
+
+    Flush();
+}
+
+int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: Place code here.
+
+    SetupConsole();
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -105,7 +117,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   HWND hWnd = CreateWindowExW(WS_EX_COMPOSITED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -135,8 +147,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     switch (message)
     {
     case WM_CREATE:
-        SetTimer(hWnd, 1, 250, NULL);
-        Program.Initialize();
+        SetTimer(hWnd, 1, 50, NULL);
+        Program.Initialize(); // вызов функции инициализации
         break;
 
     case WM_COMMAND:
@@ -163,20 +175,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_TIMER:
-        Program.Update();
+        Program.Update(); // обновление поля
         InvalidateRect(hWnd, NULL, TRUE);
         break;
 
     case WM_PAINT:
-        {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
 
-            Program.Render(hdc);
+        Program.Render(hdc); // вызов метода "Render"
 
-            EndPaint(hWnd, &ps);
-        }
+        EndPaint(hWnd, &ps);
         break;
+    }
+
     case WM_DESTROY:
         Program.Exit();
         PostQuitMessage(0);

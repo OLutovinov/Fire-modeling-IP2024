@@ -8,6 +8,12 @@
 
 using namespace std;
 
+void Flush();
+void Enter();
+void LogStr(string message);
+void Log(bool message);
+void Log(int message);
+void Log(float message);
 
 struct Vector
 {
@@ -47,20 +53,36 @@ public:
 struct Cell
 {
     bool burning;
-    int fuel;
-    string type;
+    float fuelMass;
+    float capacity;
+    float burnSpeed;
+    float combustionHeat;
+    float temp;
+    float fireTemp;
+    float height;
 
-    Cell(string type = "dirt", int fuel = 0, bool burning = false)
-    {
-        this->type = type;
-        this->fuel = fuel;
-        this->burning = burning;
-    }
+    const float WaterCapacity = 4200.0;
+    const float VaporizationHeat = 2260000.0;
+    const float VaporizationTemp = 100.0;
+    float waterMass;
+    float waterTemp;
+
+    void CopyTempsFrom(Cell other);
+    void CopyConstantsFrom(Cell other);
+
+    void SetHumidity(float percent);
+    float GetHumidity();
+
+    Cell() { }
+
+    void FillParams();
+    void Update(float heat);
+    COLORREF GetColor();
 };
 
 class Module
 {
-public:
+private:
     Cell** field;
 
     int width;
@@ -72,9 +94,7 @@ public:
     int fireSourceX;
     int fireSourceY;
 
-    float burnProbability = 0.65;
-
-    Vector windDir = Vector(1, 1);
+    Vector windDir = Vector(0, 0);
     float windSpeed = 1;
     bool renderWind = false;
 
@@ -83,7 +103,8 @@ public:
     void Initialize();
     void CopyField(bool toNewField);
     void GetWindowSize(int width, int height);
-    bool RandomProbability(float percent);
+    bool InBounds(Vector cord);
+    Cell GetCell(Vector cord);
     void BurnNearCells(int x, int y);
     void Update();
     void Render(HDC hdc);
