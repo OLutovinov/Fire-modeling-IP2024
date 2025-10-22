@@ -12,11 +12,17 @@ void Cell::CopyTempsFrom(Cell other)
 }
 void Cell::CopyConstantsFrom(Cell other)
 {
+    this->isWater = other.isWater;
     this->capacity = other.capacity;
     this->burnSpeed = other.burnSpeed;
     this->combustionHeat = other.combustionHeat;
     this->fireTemp = other.fireTemp;
     this->height = other.height;
+    this->colorR = other.colorR;
+    this->colorG = other.colorG;
+    this->colorB = other.colorB;
+
+   // y = 
 }
 
 void Cell::SetHumidity(float percent)
@@ -35,24 +41,26 @@ int RandInt(int min, int max)
 }
 void Cell::FillParams()
 {
+    isWater = false;
     burning = false;
-    fuelMass = (float)RandInt(200, 300) / 1000.0;
-    capacity = RandInt(300, 400);
+    fuelMass = (float)RandInt(300, 500) / 1000.0;
+    capacity = RandInt(350, 400);
     fireTemp = (float)RandInt(230, 300);
     temp = waterTemp = 20;
-    SetHumidity(RandInt(10, 20));
-    burnSpeed = 0.025 * 1.0;
-    combustionHeat = (float)RandInt(800000, 1200000);
+    SetHumidity(RandInt(30, 40));
+    burnSpeed = 0.025;
+    combustionHeat = (float)RandInt(1200000, 1700000);
     height = 100;
+    colorR = 10; colorG = 180; colorB = 60;
 }
 
-void Cell::Update(float heat)
+void Cell::Update(float heat, float deltaTime)
 {
-    if (fuelMass <= 0) return;
+    if (fuelMass <= 0 || isWater) return;
 
     if (burning)
     {
-        fuelMass -= burnSpeed; // горючее сгорает 
+        fuelMass -= burnSpeed * deltaTime; // горючее сгорает 
         if (fuelMass <= 0.0) // если горючего не осталось
         {
             fuelMass = 0.0;
@@ -61,7 +69,7 @@ void Cell::Update(float heat)
         return;
     }
 
-    if (waterMass > 0.0) // проверка на наличие водяного пара
+    if (waterMass > 0) // проверка на наличие водяного пара
     {
         // если температура воды меньше 100 градусов => нагрев воды
         if (waterTemp < VaporizationTemp) 
@@ -80,24 +88,24 @@ void Cell::Update(float heat)
                 waterTemp += deltaTemp;
             }
         }
-        if (waterTemp >= VaporizationTemp)  // испарение воды
+        else // испарение воды
         {
             // расчет массы испаренного пара по формуле из термодинамики
             float waterVaporized = heat / VaporizationHeat;
-            if (waterMass - waterVaporized <= 0.0)
+            if (waterMass - waterVaporized <= 0)
             {
-                heat -= waterMass * VaporizationHeat;
                 waterMass = 0;
+                heat -= waterMass * VaporizationHeat;
             }
             else
             {
-                waterMass -= waterVaporized;
+                waterMass -= waterVaporized * deltaTime;
                 heat = 0;
             }
         }
     }
 
-    temp += heat / (capacity * fuelMass);
+    temp += heat / (capacity * fuelMass) * deltaTime;
     // согласно формуле из физики, полученное тепло идет на нагрев
 
     if (temp >= fireTemp && !burning) // если температура выше
@@ -109,10 +117,11 @@ void Cell::Update(float heat)
 
 COLORREF Cell::GetColor()
 {
-    if (this->fuelMass <= 0 && GetHumidity() < 0.25) return RGB(40, 25, 15);
-    
+    if (this->fuelMass <= 0) return RGB(40, 25, 15);
+    if (isWater) return RGB(40, 60, 230);
+
     return RGB(
-        min(255, 255 * (temp / fireTemp)),
-        min(255, 255 * (fuelMass / 0.5)),
-        min(255, 255 * GetHumidity()));
+        min(255, colorR + (255-colorR) * (temp / fireTemp)),
+        min(255, colorG * min((fuelMass / 1), 1)),
+        min(255, colorB * GetHumidity()));
 }

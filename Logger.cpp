@@ -48,3 +48,10 @@ void Log(float message)
 	output << message;
 	output.close();
 }
+void Log(Vector message)
+{
+	cout << "{ " << message.X << "; " << message.Y << " }";
+	ofstream output("log.txt", ios::app);
+	output << "{ " << message.X << "; " << message.Y << " }";
+	output.close();
+}

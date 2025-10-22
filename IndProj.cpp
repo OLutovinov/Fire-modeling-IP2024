@@ -1,8 +1,11 @@
-// IndProj.cpp : Defines the entry point for the application.
+п»ї// IndProj.cpp : Defines the entry point for the application.
 //
-
 #include "framework.h"
 #include "IndProj.h"
+#include <commdlg.h>
+#include <string>
+#include <vector>
+#include <windows.h>
 
 #define MAX_LOADSTRING 100
 
@@ -45,7 +48,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 
     // TODO: Place code here.
 
-    SetupConsole();
+    //SetupConsole();
 
     // Initialize global strings
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -117,7 +120,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Store instance handle in our global variable
 
-   HWND hWnd = CreateWindowExW(WS_EX_COMPOSITED, szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   HWND hWnd = CreateWindowExW(WS_EX_COMPOSITED, szWindowClass, szTitle, WS_EX_COMPOSITED,
       CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -142,13 +145,25 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - post a quit message and return
 //
 //
+
+static TCHAR name[256] = _T("");
+static OPENFILENAME file;
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
     case WM_CREATE:
-        SetTimer(hWnd, 1, 50, NULL);
-        Program.Initialize(); // вызов функции инициализации
+        file.lStructSize = sizeof(OPENFILENAME);
+        file.hInstance = hInst;
+        file.lpstrFilter = _T("Text\0*.txt");
+        file.lpstrFile = name;
+        file.nMaxFile = 256;
+        file.lpstrInitialDir = _T(".\\");
+        file.lpstrDefExt = _T("txt");
+        
+        SetTimer(hWnd, 1, 17, NULL);
+        SetTimer(hWnd, 2, 300, NULL);
+        Program.Initialize(); // ГўГ»Г§Г®Гў ГґГіГ­ГЄГ¶ГЁГЁ ГЁГ­ГЁГ¶ГЁГ Г«ГЁГ§Г Г¶ГЁГЁ
         break;
 
     case WM_COMMAND:
@@ -164,6 +179,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 Program.Exit();
                 DestroyWindow(hWnd);
                 break;
+            case ID_FILE_OPEN:
+                file.lpstrTitle = _T("РћС‚РєСЂС‹С‚СЊ С„Р°Р№Р»");
+                file.Flags = OFN_HIDEREADONLY;
+                if (!GetOpenFileName(&file)) return 1;
+                
+                Program.Initialize(SaveManager::LoadData(name));
+
+                InvalidateRect(hWnd, NULL, 1);
+                break;
+            case ID_FILE_SAVE:
+                file.lpstrTitle = _T("РЎРѕС…СЂР°РЅРёС‚СЊ С„Р°Р№Р»");
+                file.Flags = OFN_NOTESTFILECREATE;
+                if (!GetSaveFileName(&file)) return 1;
+                SaveManager::SaveData(Program.startPosition, Program.width, Program.height, name);
+                break;
+
+            case ID_FILE_EDIT:
+                Program.Restart();
+                Program.state = Program.InEditor;
+                break;
+
             default:
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -175,8 +211,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_TIMER:
-        Program.Update(); // обновление поля
-        InvalidateRect(hWnd, NULL, TRUE);
+        if(wParam == 1) Program.Update();
+        else InvalidateRect(hWnd, NULL, TRUE);
+        break;
+
+    case WM_MOUSEMOVE:
+        if (Program.mouseHeld)
+        {
+            if (GetAsyncKeyState(VK_SPACE) & 0x8000)
+                Program.DragCamera(Vector(LOWORD(lParam), HIWORD(lParam)) - Program.mousePosition);
+            else if (Program.state == Program.InEditor) Program.EditorOnMouseHold();
+        }
+        Program.mousePosition = Vector(LOWORD(lParam), HIWORD(lParam));
+        
+        break;
+    case WM_LBUTTONDOWN:
+        Program.OnMousePressed();
+        Program.mouseHeld = true;
+        break;
+    case WM_LBUTTONUP:
+        Program.mouseHeld = false;
+    case WM_MOUSEWHEEL:
+        if (MK_CONTROL & wParam) Program.OnScroll((short)HIWORD(wParam) / WHEEL_DELTA);
         break;
 
     case WM_PAINT:
@@ -184,8 +240,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
-        Program.Render(hdc); // вызов метода "Render"
-
+        Program.Render(hdc);
         EndPaint(hWnd, &ps);
         break;
     }

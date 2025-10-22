@@ -1,0 +1,76 @@
+profile: 1
+isWater: 0
+burning: 0
+fuelMass: 0
+capacity: 500
+fireTemp: 320
+temp: 20
+humidity: 20
+burnSpeed: 0.02
+combustionHeat: 1200000
+height: 100
+color: 10 180 60
+
+profile: 2
+isWater: 1
+burning: 0
+fuelMass: 0.25
+capacity: 350
+fireTemp: 250
+temp: 20
+humidity: 10
+burnSpeed: 0.02
+combustionHeat: 1200000
+height: 100
+
+profile: 3
+isWater: 0
+burning: 1
+fuelMass: 0.4
+capacity: 350
+fireTemp: 250
+temp: 250
+humidity: 5
+burnSpeed: 0.02
+combustionHeat: 2100000
+height: 100
+color: 90 120 40
+
+profile: 4
+isWater: 0
+burning: 0
+fuelMass: 0.3
+capacity: 350
+fireTemp: 250
+temp: 20
+humidity: 5
+burnSpeed: 0.02
+combustionHeat: 2100000
+height: 100
+color: 110 240 120
+
+profile: 5
+isWater: 0
+burning: 0
+fuelMass: 0.4
+capacity: 350
+fireTemp: 250
+temp: 20
+humidity: 20
+burnSpeed: 0.015
+combustionHeat: 1200000
+height: 105
+color: 40 120 90
+
+profile: 6
+isWater: 0
+burning: 0
+fuelMass: 5
+capacity: 400
+fireTemp: 250
+temp: 10
+humidity: 10
+burnSpeed: 0.017
+combustionHeat: 1800000
+height: 105
+color: 140 170 90

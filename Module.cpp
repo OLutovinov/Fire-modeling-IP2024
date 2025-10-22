@@ -1,46 +1,120 @@
 #include "IndProj.h"
 #include <iostream>
+#include <fstream>
 
 using namespace std;
 
+void Approach(float& value, float target, float maxMove)
+{
+    if (abs(target - value) <= maxMove) value = target;
+    else if (target > value) value += maxMove;
+    else value -= maxMove;
+}
 
+COLORREF ColorMult(int r, int g, int b, float multiplier)
+{
+    return RGB((float)r * multiplier, (float)g * multiplier, (float)b * multiplier);
+}   
+
+void Module::Restart()
+{
+    for (int x = 0; x < width; x++)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            field[x][y].CopyConstantsFrom(startPosition[x][y]);
+            field[x][y].CopyTempsFrom(startPosition[x][y]);
+        }
+    }
+    state = RunningSimulation;
+    Timer = 0;
+    timerActive = false;
+}
 void Module::Initialize()
 {
     setlocale(LC_CTYPE, "rus");
     srand(time(0));
     
-    width = 24;
-    height = 16;
-
-    fireSourceX = fireSourceY = 0;
+    width = 90;
+    height = 60;
 
     WindowWidth = 1920; WindowHeight = 1080;
 
-    windDir = Vector(1, 0);
-    windDir.Normalize();
+    windDir = Vector(0, 0);
 
+    startPosition = new Cell * [width];
     field = new Cell * [width];
     updatedField = new Cell * [width];
 
     for (int x = 0; x < width; x++)
     {
+        startPosition[x] = new Cell[height]();
         field[x] = new Cell[height]();
         updatedField[x] = new Cell[height]();
     }
 
     FillWithRandom();
 
-    field[fireSourceX][fireSourceY].Update(1000000);
+    buttonCount = 5;
+    buttons = new Button*[buttonCount]();
+    buttons[0] = new DecreaseTimeButton(Vector(50, 80), Vector(40, 40));
+    buttons[1] = new IncreaseTimeButton(Vector(100, 80), Vector(40, 40));
+    buttons[2] = new RestartSimulationButton(Vector(30, 20), Vector(55, 55));
+    buttons[3] = new PauseResumeButton(Vector(100, 20), Vector(55, 55));
+    buttons[4] = new TimerButton(Vector(300, 20), Vector(55, 55));
+
+    camera = Camera();
+    camera.Position.Y -= GetCellSize() * height / 8;
+    editor = Editor();
+
+    state = Paused;
+    Timer = 0;
+    timerActive = false;
+}
+void Module::Initialize(ImportedData data)
+{
+    width = data.width;
+    height = data.height;
+    
+    Exit();
+    startPosition = new Cell * [width];
+    field = new Cell * [width];
+    updatedField = new Cell * [width];
+
+    for (int x = 0; x < width; x++)
+    {
+        startPosition[x] = new Cell[height]();
+        field[x] = new Cell[height]();
+        updatedField[x] = new Cell[height]();
+    }
+
+    for (int x = 0; x < width; x++)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            field[x][y].CopyTempsFrom(data.field[x][y]);
+            field[x][y].CopyConstantsFrom(data.field[x][y]);
+            updatedField[x][y].FillParams();
+            updatedField[x][y].CopyConstantsFrom(data.field[x][y]);
+            startPosition[x][y].CopyConstantsFrom(data.field[x][y]);
+            startPosition[x][y].CopyTempsFrom(data.field[x][y]);
+        }
+    }
+    state = Paused;
+    Timer = 0;
+    timerActive = false;
 }
 
 void Module::CopyField(bool toNewField)
 {
     for (int x = 0; x < width; x++)
+    {
         for (int y = 0; y < height; y++)
         {
             if (toNewField) updatedField[x][y].CopyTempsFrom(field[x][y]);
             else field[x][y].CopyTempsFrom(updatedField[x][y]);
         }
+    }
 }
 
 void Module::GetWindowSize(int width, int height)
@@ -51,21 +125,50 @@ void Module::GetWindowSize(int width, int height)
 
 void Module::Update()
 {
-    CopyField(true); // копирование из главного поля в "updatedField"
-
-    for (int x = 0; x < width; x++)
+    if (state == InEditor)
     {
-        for (int y = 0; y < height; y++) // проход по всем клеткам
+        for (int p = 0; p < 10; p++)
         {
-            if (field[x][y].burning)
+            if (GetAsyncKeyState(48 + p))
             {
-                BurnNearCells(x, y); // передача тепла соседним клеткам
-                updatedField[x][y].Update(field[x][y].burnSpeed * field[x][y].combustionHeat);
+                editor.ReloadType(p);
+                break;
             }
         }
     }
 
-    CopyField(false); // копирование из "updateField" в главное поле
+    for (int c = 0; c < buttonCount; c++)
+        buttons[c]->Update(*this);
+
+    if (state != RunningSimulation) return;
+
+
+    CopyField(true);
+
+    for (int x = 0; x < width; x++)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            if (field[x][y].burning)
+            {
+                float cellHeat = field[x][y].burnSpeed * field[x][y].combustionHeat;
+                BurnNearCells(x, y, cellHeat/2.);
+                updatedField[x][y].Update(cellHeat/2., ElapsedTime);
+            }
+        }
+    }
+
+    CopyField(false);
+    if(timerActive) Timer += ElapsedTime;
+}
+void Module::EditorOnMouseHold()
+{
+    Vector selected = mousePosition;
+    camera.ScreenToWorld(*this, selected);
+    if (!InBounds(selected)) return;
+
+    startPosition[(int)selected.X][(int)selected.Y].CopyConstantsFrom(editor.cellType);
+    startPosition[(int)selected.X][(int)selected.Y].CopyTempsFrom(editor.cellType);
 }
 
 bool Module::InBounds(Vector cord)
@@ -78,8 +181,9 @@ Cell Module::GetCell(Vector cord)
     return field[(int)cord.X][(int)cord.Y];
 }
 
-void Module::BurnNearCells(int fromX, int fromY)
+void Module::BurnNearCells(int fromX, int fromY, float kHeat)
 {
+    float baseHeight = field[fromX][fromY].height;
     Vector checkPos = Vector(fromX, fromY);
     for (int c = 0; c < 8; c++)
     {
@@ -96,20 +200,82 @@ void Module::BurnNearCells(int fromX, int fromY)
             case 6: checkPos.X += 0; checkPos.Y += 1; break;
             case 7: checkPos.X -= 1; checkPos.Y += 1; break;
         }
-        checkPos.X += windDir.X;
-        checkPos.Y += windDir.Y;
-
+        checkPos += windDir;
         if (!InBounds(checkPos)) continue;
 
         Cell currentCell = GetCell(checkPos);
-        // клетка-сосед не должна гореть и иметь горючее
-        if(!currentCell.burning && currentCell.fuelMass > 0)
+
+        if(!currentCell.burning && currentCell.fuelMass > 0 && !currentCell.isWater)
         {
-            // передача тепла клетке-соседу
+            float heightMult = max(-pow(( ((currentCell.height - baseHeight) - 0.2) / 0.4), 2 ) + 1, 0);
+
             updatedField[(int)checkPos.X][(int)checkPos.Y].Update(
-                currentCell.burnSpeed * currentCell.combustionHeat);
+                kHeat / (Vector(fromX, fromY) - checkPos).Length() * heightMult, ElapsedTime);
         }
     }
+}
+
+
+void Editor::ReloadType(int profile)
+{
+    std::ifstream input("brushProfiles.txt");
+
+
+    while (!input.eof())
+    {
+        string s;
+        input >> s;
+        if (s == "profile:")
+        {
+            int localProfile; input >> localProfile;
+            if (localProfile == profile)
+            {
+                string s;
+                input >> s; input >> cellType.isWater;
+                input >> s; input >> cellType.burning;
+                input >> s; input >> cellType.fuelMass;
+                input >> s; input >> cellType.capacity;
+                input >> s; input >> cellType.fireTemp;
+                input >> s; input >> cellType.temp;
+
+                float humidity; input >> s; input >> humidity;
+                cellType.SetHumidity(humidity);
+                input >> s; input >> cellType.burnSpeed;
+                input >> s; input >> cellType.combustionHeat;
+                input >> s; input >> cellType.height;
+                input >> s; input >> cellType.colorR >> cellType.colorG >> cellType.colorB;
+                
+                return;
+            }
+        }
+    }
+}
+
+void Module::MoveCamToMouse()
+{
+    camera.Position += mousePosition - (Vector(WindowWidth, WindowHeight) / 2);
+}
+void Module::OnMousePressed()
+{
+    bool flag = true;
+    for (int c = 0; c < buttonCount; c++)
+    {
+        if ((*buttons[c]).CheckClick(mousePosition))
+        {
+            (*buttons[c]).OnPress(*this);
+            flag = false;
+            return;
+        }
+    }
+}
+void Module::OnScroll(int dir)
+{
+    camera.Position += (mousePosition - (Vector(WindowWidth, WindowHeight) / 2)) * dir * 0.1;
+    Approach(camera.Zoom, dir > 0 ? 100 : 0.001, 0.1 );
+}
+void Module::DragCamera(Vector delta)
+{
+    camera.Position -= delta;
 }
 
 void Clear(HDC hdc, int width, int height)
@@ -118,113 +284,106 @@ void Clear(HDC hdc, int width, int height)
     Rectangle(hdc, 0, 0, width, height);
 } 
 
+void Module::RenderUI(HDC hdc)
+{
+    HBRUSH bg = CreateSolidBrush(RGB(60, 60, 60));
+    SelectObject(hdc, bg);
+    Rectangle(hdc, 0, 0, WindowWidth, 130);
+    DeleteObject(bg);
+    for (int c = 0; c < buttonCount; c++)
+    {
+        (*buttons[c]).Render(hdc);
+    }
+    
+}
 
+float Module::GetCellSize()
+{
+    float fullSize =
+        ((float)WindowHeight / (float)height < (float)WindowWidth / (float)width) ?
+        (WindowHeight) / (float)height : (WindowWidth) / (float)width;
+
+
+    return fullSize;
+}
 void Module::Render(HDC hdc)
 {
-    Clear(hdc, WindowWidth, WindowHeight); // очистка холста
+    Clear(hdc, WindowWidth, WindowHeight);
 
-    int basicOffset = 10;
+    float fullSize = GetCellSize();
 
-    // расчет размера клетки на экране на основе размеров окна
-    float fullSize = 
-        ((float)WindowHeight / (float)height < (float)WindowWidth / (float)width) ?
-        (WindowHeight - 2 * basicOffset) / (float)height
-        : (WindowWidth - 2 * basicOffset) / (float)width;
-
-    // между клетками есть интервал в 1/20 часть от их размера
-    const float offset = fullSize * 0.05;
-
-    // размер клетки с вычетом интервала
-    const float size = fullSize - offset;
-
-    for (int x = 0; x < width; x++)
-    {
-        for (int y = 0; y < height; y++) // проход по всем клеткам
-        {
-            // задание цвета клетки
-            HBRUSH temporalBrush = CreateSolidBrush(field[x][y].GetColor());
-            SelectObject(hdc, temporalBrush);
-
-            // расчет положения клетки
-            Vector cellPos = Vector(
-                basicOffset + x * fullSize, basicOffset + y * fullSize);
-
-            // отрисовка клетки
-            Rectangle(hdc, (int)cellPos.X, (int)cellPos.Y,
-                (int)cellPos.X + size, (int)cellPos.Y + size);
-            
-            DeleteObject(temporalBrush);
-        }
-    }
-
-    if(!renderWind) return;
+    HBRUSH temporalBrush;
+    HPEN pen = CreatePen(PS_NULL, 1, RGB(255, 0, 0));
+    SelectObject(hdc, pen);
     for (int x = 0; x < width; x++)
     {
         for (int y = 0; y < height; y++)
         {
-            Vector cellPos = Vector(basicOffset + x * fullSize, basicOffset + y * fullSize);
-            MoveToEx(hdc, ((int)cellPos.X + fullSize / 2), ((int)cellPos.Y + fullSize / 2), 0);
+            if ((state == InEditor ? startPosition[x][y] : field[x][y]).fuelMass <= 0) continue;
+            //if (!field[x][y].burning) continue;
+            temporalBrush = CreateSolidBrush((state == InEditor ? startPosition[x][y] : field[x][y]).GetColor());
+            pen = CreatePen(PS_INSIDEFRAME, 1, (state == InEditor ? startPosition[x][y] : field[x][y]).GetColor());
+            SelectObject(hdc, temporalBrush);
+            SelectObject(hdc, pen);
 
-            LineTo(hdc, ((int)cellPos.X + fullSize / 2) + (int)windDir.X * fullSize,
-                ((int)cellPos.Y + fullSize / 2) + (int)windDir.Y * fullSize);
+            Vector cellPos = Vector(x * fullSize, y * fullSize);
+            camera.WorldToScreen(cellPos);
+
+            Rectangle(hdc, (int)cellPos.X, (int)cellPos.Y,
+                (int)cellPos.X + fullSize*camera.Zoom, (int)cellPos.Y + fullSize * camera.Zoom);
+
+            DeleteObject(temporalBrush);
+            DeleteObject(pen);
+        }
+        
+    }
+    pen = CreatePen(PS_NULL, 1, RGB(0, 0, 0));
+    SelectObject(hdc, pen);
+    if (renderWind)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            for (int y = 0; y < height; y++)
+            {
+                Vector cellPos = Vector(x * fullSize, y * fullSize);
+                MoveToEx(hdc, ((int)cellPos.X + fullSize / 2), ((int)cellPos.Y + fullSize / 2), 0);
+
+                LineTo(hdc, ((int)cellPos.X + fullSize / 2) + (int)windDir.X * fullSize,
+                    ((int)cellPos.Y + fullSize / 2) + (int)windDir.Y * fullSize);
+            }
         }
     }
+    
+    RenderUI(hdc);
+
 }
+
 
 void Module::FillWithRandom()
 {
-    const int N = 13;
-    Vector noFuelCells[N] = { Vector(6,7), Vector(7,7), Vector(8,7), Vector(9,7),
-    Vector(10,7), Vector(11, 7), Vector(12, 7), Vector(13, 7),
-    Vector(13, 6), Vector(13, 5), Vector(13, 4), Vector(13, 3), Vector(13, 2) };
-
-    const int M = 20;
-    Vector waterCells[M] = { Vector(20,15), Vector(19,15), Vector(20,14), Vector(19,14), 
-    Vector(20,13), Vector(19,13),  Vector(20,12), Vector(19,12),  Vector(20,11), Vector(19,11),
-    Vector(20,10), Vector(19,10), Vector(18,10), Vector(18,11), Vector(17,10), Vector(17,11),
-    Vector(16,10), Vector(16,11), Vector(15,10), Vector(15,11) };
-
     for (int x = 0; x < width; x++)
     {
-        for (int y = 0; y < height; y++) // проход по каждой клетке поля
+        for (int y = 0; y < height; y++)
         {
-            field[x][y].FillParams();
-
-            for (int c = 0; c < N; c++)
-            {
-                if (noFuelCells[c].X == x && noFuelCells[c].Y == y)
-                {
-                    field[x][y].fuelMass = 0;
-                    break;
-                }
-            }
-            for (int c = 0; c < M; c++)
-            {
-                if (waterCells[c].X == x && waterCells[c].Y == y)
-                {
-                    field[x][y].SetHumidity(80);
-                    field[x][y].fuelMass = 0;
-                    break;
-                }
-            }
-
-            updatedField[x][y].CopyTempsFrom(field[x][y]);
-            updatedField[x][y].CopyConstantsFrom(field[x][y]);
+            startPosition[x][y].FillParams();
+            updatedField[x][y].CopyTempsFrom(startPosition[x][y]);
+            updatedField[x][y].CopyConstantsFrom(startPosition[x][y]);
+            field[x][y].CopyTempsFrom(startPosition[x][y]);
+            field[x][y].CopyConstantsFrom(startPosition[x][y]);
         }
     }
 }
 
     void Module::Exit()
     {
-        // проход по всем строкам
         for (int x = 0; x < width; x++)
         {
-            // удаление строк
             delete[] field[x];       
             delete[] updatedField[x];
+            delete[] startPosition[x];
         }
 
-        // удаление столбцов
         delete[] field;
         delete[] updatedField;
+        delete[] startPosition;
     }
